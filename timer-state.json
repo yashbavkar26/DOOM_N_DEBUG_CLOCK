@@ -1,0 +1,10 @@
+{
+  "totalDurationMs": 86400000,
+  "remainingMsWhenPaused": 86400000,
+  "isRunning": false,
+  "endTimestamp": null,
+  "threshold12hTriggered": false,
+  "expiredTriggered": false,
+  "cracks": [],
+  "lastUpdated": 1794504590083
+}

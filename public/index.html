@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>DOOM N DEBUG | 24-Hour Survival Clock</title>
+  <!-- Tailwind CSS CDN with plugins -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <!-- Google Fonts for Cyber/Sci-Fi Aesthetic -->
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&amp;family=Orbitron:wght@500;700;800;900&amp;family=Share+Tech+Mono&amp;display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            doom: {
+              black: '#020502',
+              dark: '#050c06',
+              panel: '#071309',
+              border: '#133519',
+              green: '#00ff66',
+              lime: '#39ff14',
+              emerald: '#10b981',
+              dim: '#184220',
+              alert: '#ff003c',
+              alertGlow: '#ff3366',
+              alertDark: '#2a040b'
+            }
+          },
+          fontFamily: {
+            orbitron: ['Orbitron', 'monospace'],
+            chakra: ['Chakra Petch', 'sans-serif'],
+            mono: ['Share Tech Mono', 'monospace']
+          },
+          animation: {
+            'glitch-fast': 'glitch 0.18s cubic-bezier(.25, .46, .45, .94) both infinite',
+            'screen-shake': 'shake 0.65s cubic-bezier(.36,.07,.19,.97) both',
+            'screen-shake-heavy': 'shakeHeavy 0.9s cubic-bezier(.36,.07,.19,.97) both',
+            'shockwave': 'shockwave 0.8s ease-out forwards',
+            'pulse-rapid': 'pulse 0.6s infinite'
+          },
+          keyframes: {
+            shake: {
+              '10%, 90%': { transform: 'translate3d(-3px, 2px, 0) rotate(-0.5deg)' },
+              '20%, 80%': { transform: 'translate3d(4px, -3px, 0) rotate(0.8deg)' },
+              '30%, 50%, 70%': { transform: 'translate3d(-6px, 4px, 0) rotate(-1.2deg)' },
+              '40%, 60%': { transform: 'translate3d(6px, -4px, 0) rotate(1.2deg)' }
+            },
+            shakeHeavy: {
+              '0%, 100%': { transform: 'translate3d(0, 0, 0)' },
+              '10%, 30%, 50%, 70%, 90%': { transform: 'translate3d(-10px, 6px, 0) rotate(-1.8deg)' },
+              '20%, 40%, 60%, 80%': { transform: 'translate3d(10px, -6px, 0) rotate(1.8deg)' }
+            },
+            glitch: {
+              '0%': { transform: 'translate(0)', textShadow: '3px 0 #ff003c, -3px 0 #00ff66' },
+              '25%': { transform: 'translate(-3px, 2px)', textShadow: '-3px 0 #ff003c, 3px 0 #00ffff' },
+              '50%': { transform: 'translate(3px, -2px)', textShadow: '4px 0 #ff003c, -4px 0 #39ff14' },
+              '75%': { transform: 'translate(-2px, -1px)', textShadow: '-2px 0 #ff003c, 2px 0 #00ff66' },
+              '100%': { transform: 'translate(0)', textShadow: 'none' }
+            },
+            shockwave: {
+              '0%': { transform: 'scale(0.6)', opacity: '1', filter: 'blur(0px)' },
+              '50%': { opacity: '0.85' },
+              '100%': { transform: 'scale(2.2)', opacity: '0', filter: 'blur(12px)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style data-purpose="hud-fx">
+    body {
+      background-color: #020502;
+      background-image:
+        radial-gradient(circle at 50% 30%, rgba(0, 255, 102, 0.12) 0%, transparent 70%),
+        radial-gradient(circle at 50% 85%, rgba(16, 185, 129, 0.05) 0%, transparent 60%),
+        linear-gradient(rgba(2, 5, 2, 0.96), rgba(2, 5, 2, 0.98));
+      transition: background-image 0.8s ease;
+    }
+
+    body.doom-critical-mode {
+      background-image:
+        radial-gradient(circle at 50% 30%, rgba(255, 0, 60, 0.18) 0%, transparent 70%),
+        radial-gradient(circle at 50% 85%, rgba(255, 51, 102, 0.08) 0%, transparent 60%),
+        linear-gradient(rgba(8, 2, 4, 0.97), rgba(4, 1, 2, 0.99));
+    }
+
+    /* Scanline atmospheric layer */
+    .scanline-overlay {
+      background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%,
+        rgba(0, 255, 102, 0.035) 50%
+      ), linear-gradient(
+        90deg,
+        rgba(255, 0, 0, 0.02),
+        rgba(0, 255, 0, 0.01),
+        rgba(0, 0, 255, 0.02)
+      );
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+    }
+
+    /* CRT Vignette */
+    .crt-vignette {
+      box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.9), inset 0 0 45px rgba(0, 255, 102, 0.12);
+      pointer-events: none;
+      transition: box-shadow 0.5s ease;
+    }
+
+    body.doom-critical-mode .crt-vignette {
+      box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.92), inset 0 0 60px rgba(255, 0, 60, 0.25);
+    }
+
+    /* Glows */
+    .glow-toxic {
+      text-shadow: 0 0 10px rgba(0, 255, 102, 0.8), 0 0 25px rgba(0, 255, 102, 0.5), 0 0 50px rgba(57, 255, 20, 0.25);
+    }
+
+    .glow-alert {
+      text-shadow: 0 0 12px rgba(255, 0, 60, 0.95), 0 0 35px rgba(255, 0, 60, 0.7), 0 0 65px rgba(255, 0, 60, 0.4);
+    }
+
+    .border-glow-toxic {
+      box-shadow: 0 0 25px rgba(0, 255, 102, 0.25), inset 0 0 25px rgba(0, 255, 102, 0.12);
+    }
+
+    .border-glow-alert {
+      box-shadow: 0 0 40px rgba(255, 0, 60, 0.6), inset 0 0 35px rgba(255, 0, 60, 0.28);
+    }
+
+    /* Cyber metallic green title */
+    .cyber-doom-title {
+      background: linear-gradient(180deg, #ffffff 0%, #4aff8f 35%, #05a33c 75%, #023612 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 22px rgba(0, 255, 102, 0.7));
+    }
+
+    body.doom-critical-mode .cyber-doom-title {
+      background: linear-gradient(180deg, #ffffff 0%, #ff5c82 35%, #cc0030 75%, #3d000f 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 25px rgba(255, 0, 60, 0.85));
+    }
+
+    /* Cyber Card and Container Polygonal Cutouts */
+    .cyber-timer-frame {
+      clip-path: polygon(
+        0 24px,
+        24px 0,
+        calc(100% - 24px) 0,
+        100% 24px,
+        100% calc(100% - 24px),
+        calc(100% - 24px) 100%,
+        24px 100%,
+        0 calc(100% - 24px)
+      );
+    }
+
+    .cyber-digit-box {
+      clip-path: polygon(
+        0 14px,
+        14px 0,
+        calc(100% - 14px) 0,
+        100% 14px,
+        100% calc(100% - 14px),
+        calc(100% - 14px) 100%,
+        14px 100%,
+        0 calc(100% - 14px)
+      );
+    }
+
+    /* Hazard Warning Stripes */
+    .hazard-stripes {
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 0, 60, 0.25),
+        rgba(255, 0, 60, 0.25) 10px,
+        rgba(0, 0, 0, 0.65) 10px,
+        rgba(0, 0, 0, 0.65) 20px
+      );
+    }
+
+    /* Flash shockwave element */
+    #doomFlashOverlay {
+      transition: opacity 0.45s ease;
+    }
+
+    /* Emergency Siren Visual Strobe */
+    @keyframes emergencyStrobe {
+      0%, 100% { background-color: rgba(255, 0, 60, 0.24); }
+      50% { background-color: rgba(0, 255, 102, 0.06); }
+    }
+    .siren-active-strobe {
+      animation: emergencyStrobe 0.75s infinite;
+    }
+
+    /* Final 10 seconds digit pulse */
+    @keyframes finalTickPulse {
+      0% { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+    .final-tick-pop {
+      animation: finalTickPulse 0.28s ease-out;
+    }
+
+    /* Shockwave ring */
+    .shockwave-ring {
+      position: fixed;
+      width: 240px;
+      height: 240px;
+      margin-left: -120px;
+      margin-top: -120px;
+      border-radius: 9999px;
+      border: 4px solid rgba(0, 255, 102, 0.85);
+      box-shadow: 0 0 40px rgba(0, 255, 102, 0.8), inset 0 0 30px rgba(0, 255, 102, 0.5);
+      pointer-events: none;
+      z-index: 45;
+      animation: shockwave 0.75s ease-out forwards;
+    }
+    .shockwave-ring.alert-ring {
+      border-color: rgba(255, 0, 60, 0.95);
+      box-shadow: 0 0 50px rgba(255, 0, 60, 0.9), inset 0 0 35px rgba(255, 0, 60, 0.6);
+    }
+
+    /* CRT Horizontal Glitch Bar */
+    @keyframes crtTear {
+      0% { clip-path: inset(12% 0 78% 0); transform: translateX(-8px); }
+      25% { clip-path: inset(58% 0 22% 0); transform: translateX(10px); }
+      50% { clip-path: inset(32% 0 48% 0); transform: translateX(-6px); }
+      75% { clip-path: inset(75% 0 8% 0); transform: translateX(7px); }
+      100% { clip-path: inset(0 0 0 0); transform: translateX(0); }
+    }
+    .glitch-tear-active {
+      animation: glitch 0.2s infinite;
+    }
+
+    /* Kiosk mode hides controls */
+    body.kiosk-mode .controls-panel,
+    body.kiosk-mode .lan-share-strip {
+      display: none !important;
+    }
+  </style>
+</head>
+<body class="relative min-h-screen text-gray-200 font-chakra selection:bg-doom-green selection:text-black overflow-x-hidden flex flex-col justify-between" id="pageBody">
+
+  <!-- Full-Screen Particle / Ember / Flying Glass Shard Canvas -->
+  <canvas aria-hidden="true" class="fixed inset-0 pointer-events-none z-30" id="particlesCanvas"></canvas>
+
+  <!-- Full-Screen Procedural Shattered Glass Overlay Canvas -->
+  <canvas aria-hidden="true" class="fixed inset-0 pointer-events-none z-40" id="shatterCanvas"></canvas>
+
+  <!-- Atmospheric Layers -->
+  <div aria-hidden="true" class="fixed inset-0 scanline-overlay z-50 pointer-events-none"></div>
+  <div aria-hidden="true" class="fixed inset-0 crt-vignette z-40 pointer-events-none"></div>
+  <div aria-hidden="true" class="fixed inset-0 opacity-15 pointer-events-none" id="cyberGrid" style="background-size: 40px 40px; background-image: linear-gradient(to right, #00ff66 1px, transparent 1px), linear-gradient(to bottom, #00ff66 1px, transparent 1px);"></div>
+
+  <!-- Doom Animation & Siren Flash Overlay -->
+  <div class="fixed inset-0 pointer-events-none z-40 opacity-0 bg-doom-green mix-blend-screen" id="doomFlashOverlay"></div>
+  <div class="fixed inset-0 pointer-events-none z-30 opacity-0 transition-opacity duration-300" id="sirenStrobeOverlay"></div>
+
+  <!-- Shockwave container -->
+  <div aria-hidden="true" class="fixed inset-0 pointer-events-none z-45" id="shockwaveContainer"></div>
+
+  <!-- Main Viewport Wrap -->
+  <div class="relative z-20 max-w-6xl mx-auto px-4 py-3 md:py-5 flex flex-col min-h-screen justify-between w-full" id="appContainer">
+
+    <!-- Top Bar with Institution + Central Sync Telemetry -->
+    <header class="w-full flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-doom-border/60">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded border border-doom-green/60 bg-black/80 flex items-center justify-center text-doom-green shadow-[0_0_8px_rgba(0,255,102,0.3)]" id="headerIconBox">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M6 6h10M6 10h10M12 18h4" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </div>
+        <div>
+          <span class="font-orbitron font-bold text-xs sm:text-sm tracking-wider text-white">PCCE <span class="text-doom-green font-mono text-[10px] sm:text-xs px-1.5 py-0.5 rounded bg-doom-panel border border-doom-border ml-1">DEPT. CSE</span></span>
+        </div>
+      </div>
+
+      <!-- Sync Status & Connected Nodes Pill -->
+      <div class="flex items-center flex-wrap gap-2">
+        <div class="px-2.5 py-1 rounded border border-doom-border bg-black/75 flex items-center gap-2 text-[10px] sm:text-xs font-mono" id="syncStatusPill">
+          <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" id="syncDot"></span>
+          <span class="text-gray-300" id="syncText">SYNCING...</span>
+          <span class="text-doom-green/80 border-l border-doom-border pl-2" id="nodesCountBadge">1 NODE</span>
+        </div>
+
+        <div class="px-2.5 py-1 rounded border border-doom-green/40 bg-doom-panel/90 text-[10px] sm:text-xs font-mono font-bold tracking-wider text-doom-green" id="defconBadge">
+          DEFCON 4
+        </div>
+
+        <div class="px-3 py-1 rounded-full border border-doom-green/40 bg-doom-panel/90 flex items-center space-x-2 shadow-[0_0_12px_rgba(0,255,102,0.15)]">
+          <span class="w-2 h-2 rounded-full bg-doom-green animate-ping"></span>
+          <span class="font-orbitron font-bold text-xs tracking-widest text-doom-green">TECHYON 2K26</span>
+          <span class="text-[9px] font-mono text-gray-500 hidden sm:inline">| CORE NODE</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Center Stage: Title + Dramatic Timer -->
+    <main class="my-auto py-3 flex flex-col items-center justify-center text-center">
+      <!-- Prominent Title & Subtitle -->
+      <div class="mb-4 md:mb-6 space-y-1.5 select-none">
+        <div class="inline-flex items-center gap-2 px-3 py-1 bg-doom-panel border border-doom-green/40 rounded text-doom-green text-[11px] font-mono tracking-widest mb-1 shadow-[0_0_10px_rgba(0,255,102,0.1)]" id="protocolPill">
+          <span class="w-2 h-2 bg-doom-green rounded-full animate-pulse" id="protocolDot"></span>
+          <span id="protocolLabel">PROTOCOL // CENTRALIZED SURVIVAL CLOCK</span>
+        </div>
+        <h1 class="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black font-orbitron tracking-tight cyber-doom-title leading-none uppercase filter drop-shadow" id="heroTitle">
+          DOOM <span class="text-white">N</span> DEBUG
+        </h1>
+        <p class="text-gray-300 font-mono text-xs sm:text-sm md:text-base tracking-[0.25em] uppercase">
+          24-HOUR HACKATHON <span class="text-doom-green mx-2" id="subtitleDot">•</span> SURVIVAL COUNTDOWN
+        </p>
+      </div>
+
+      <!-- Central Cyber HUD Timer Unit -->
+      <div class="w-full max-w-4xl relative">
+        <div class="cyber-timer-frame bg-doom-panel/90 border-2 border-doom-green/60 p-5 sm:p-7 md:p-8 backdrop-blur-md relative border-glow-toxic transition-all duration-500" id="timerCardContainer">
+
+          <!-- Top HUD Strip -->
+          <div class="flex flex-wrap items-center justify-between pb-3 sm:pb-4 border-b border-doom-border text-xs font-mono mb-5 gap-2">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-yellow-400" id="systemStatusDot"></span>
+              <span class="text-gray-400">STATE:</span>
+              <span class="text-yellow-300 font-bold tracking-wider uppercase" id="systemStatusText">STANDBY // READY</span>
+            </div>
+
+            <!-- Progress Indicator & Threshold Tag -->
+            <div class="flex items-center gap-3">
+              <span class="text-gray-400 hidden sm:inline">CRITICAL MARK:</span>
+              <span class="px-2.5 py-0.5 rounded bg-yellow-950/40 text-yellow-400 border border-yellow-500/50 font-bold tracking-wider flex items-center gap-1.5" id="thresholdBadge">
+                <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                12:00:00 KLAXON SIREN
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="text-gray-400">AUDIO:</span>
+              <button class="text-yellow-400 font-bold uppercase hover:underline cursor-pointer" id="soundStatusBadge" title="Click to unlock / test audio">CLICK TO ARM</button>
+            </div>
+          </div>
+
+          <!-- Main Countdown Digits Display (Hours, Minutes, Seconds) -->
+          <div class="grid grid-cols-3 gap-3 sm:gap-6 md:gap-8 my-2 sm:my-3 select-none" id="digitsGrid">
+            <!-- Hours -->
+            <div class="cyber-digit-box flex flex-col bg-black/85 border border-doom-dim rounded-lg p-3 sm:p-5 md:p-7 relative overflow-hidden group">
+              <span class="text-[10px] sm:text-xs font-mono text-gray-400 uppercase tracking-widest mb-1 sm:mb-2">HOURS</span>
+              <span class="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black font-orbitron text-white tracking-tight glow-toxic transition-all leading-none" id="clockHours">24</span>
+              <div class="digit-bar absolute bottom-0 inset-x-0 h-1 bg-doom-green/40"></div>
+            </div>
+            <!-- Minutes -->
+            <div class="cyber-digit-box flex flex-col bg-black/85 border border-doom-dim rounded-lg p-3 sm:p-5 md:p-7 relative overflow-hidden group">
+              <span class="text-[10px] sm:text-xs font-mono text-gray-400 uppercase tracking-widest mb-1 sm:mb-2">MINUTES</span>
+              <span class="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black font-orbitron text-white tracking-tight glow-toxic transition-all leading-none" id="clockMinutes">00</span>
+              <div class="digit-bar absolute bottom-0 inset-x-0 h-1 bg-doom-green/40"></div>
+            </div>
+            <!-- Seconds -->
+            <div class="cyber-digit-box flex flex-col bg-black/85 border border-doom-dim rounded-lg p-3 sm:p-5 md:p-7 relative overflow-hidden group">
+              <span class="text-[10px] sm:text-xs font-mono text-gray-400 uppercase tracking-widest mb-1 sm:mb-2">SECONDS</span>
+              <span class="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black font-orbitron text-doom-green tracking-tight glow-toxic transition-all leading-none" id="clockSeconds">00</span>
+              <div class="digit-bar absolute bottom-0 inset-x-0 h-1 bg-doom-green"></div>
+            </div>
+          </div>
+
+          <!-- Progress Bar (24h -> 0h) with 12h Midpoint Marker -->
+          <div class="mt-5 mb-2">
+            <div class="flex justify-between text-[10px] font-mono text-gray-400 mb-1">
+              <span>T-24:00:00 (START)</span>
+              <span class="text-yellow-400 font-bold">◄ 12H THRESHOLD ►</span>
+              <span>T-00:00:00 (FINAL DOOM)</span>
+            </div>
+            <div class="w-full bg-black/80 h-2.5 rounded border border-doom-dim relative overflow-hidden">
+              <!-- Threshold marker notch at 50% -->
+              <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-yellow-400 z-20"></div>
+              <!-- Fill -->
+              <div class="h-full bg-gradient-to-r from-doom-green to-doom-lime transition-all duration-300 relative z-10" id="countdownProgressBar" style="width: 100%;"></div>
+            </div>
+          </div>
+
+          <!-- 12-Hour Critical Threshold Warning Banner -->
+          <div class="hidden mt-4 p-3 hazard-stripes border-2 border-doom-alert rounded text-center text-red-100 font-mono text-xs sm:text-sm animate-pulse flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(255,0,60,0.45)]" id="thresholdBanner">
+            <svg class="w-5 h-5 text-doom-alert flex-shrink-0 animate-bounce" fill="currentColor" viewBox="0 0 20 20">
+              <path clip-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" fill-rule="evenodd"></path>
+            </svg>
+            <span class="font-bold tracking-widest" id="thresholdBannerText">WARNING: 12-HOUR MARK BREACHED // SYSTEM PURGE COMMENCING</span>
+          </div>
+
+          <!-- Final Expiration Banner -->
+          <div class="hidden mt-4 p-4 hazard-stripes border-2 border-doom-alert rounded text-center text-white font-orbitron text-sm sm:text-base tracking-widest shadow-[0_0_35px_rgba(255,0,60,0.75)]" id="expiredBanner">
+            ☢️ ZERO HOUR REACHED // DOOMSDAY PROTOCOL EXECUTED // PENCILS DOWN ☢️
+          </div>
+
+          <!-- Controls Section (Hidden in Kiosk Mode) -->
+          <div class="controls-panel mt-5 pt-4 border-t border-doom-border/80 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2.5">
+              <!-- Left Controls: Core Clock Actions -->
+              <div class="flex items-center flex-wrap gap-2">
+                <button class="px-5 py-2.5 bg-doom-green text-black font-orbitron font-extrabold text-xs uppercase tracking-wider rounded hover:bg-doom-lime transition active:scale-95 shadow-[0_0_15px_rgba(0,255,102,0.4)]" id="btnToggleTimer">
+                  Start Clock
+                </button>
+                <button class="px-4 py-2.5 bg-black border border-doom-dim text-gray-300 font-mono text-xs uppercase tracking-wider rounded hover:border-doom-green hover:text-white transition active:scale-95" id="btnResetTimer">
+                  Reset (24h)
+                </button>
+                <!-- Quick Demo Trigger: 12h -->
+                <button class="px-3 py-2.5 bg-yellow-950/70 border border-yellow-500/60 text-yellow-300 font-mono text-xs uppercase tracking-wider rounded hover:bg-yellow-900 transition active:scale-95 flex items-center gap-1.5" id="btnFastForward12h" title="Jump countdown to 12h 00m 03s on all connected screens">
+                  <svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798L4.555 5.168z"></path>
+                  </svg>
+                  <span>Demo 12h:00m:03s</span>
+                </button>
+                <!-- Quick Demo Trigger: Final 12s -->
+                <button class="px-3 py-2.5 bg-red-950/70 border border-red-500/60 text-red-300 font-mono text-xs uppercase tracking-wider rounded hover:bg-red-900 transition active:scale-95 flex items-center gap-1.5" id="btnFastForwardEnd" title="Jump countdown to 00h 00m 12s to test final countdown & explosion">
+                  <svg class="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"></path>
+                  </svg>
+                  <span>Demo 00h:00m:12s</span>
+                </button>
+              </div>
+
+              <!-- Right Controls: Doomsday FX & Audio -->
+              <div class="flex items-center flex-wrap gap-2">
+                <button class="px-3 py-2.5 bg-doom-dim/50 border border-doom-green/50 text-doom-green font-mono text-xs uppercase tracking-wide rounded hover:bg-doom-green hover:text-black transition flex items-center gap-1.5 active:scale-95 shadow-[0_0_10px_rgba(0,255,102,0.2)]" id="btnDoomAnimation" title="Trigger synced explosion, shake & glass crack">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
+                  <span>Doom FX</span>
+                </button>
+
+                <button class="px-3 py-2.5 bg-black border border-red-500/50 text-red-400 font-mono text-xs uppercase tracking-wide rounded hover:bg-red-600 hover:text-white transition active:scale-95" id="btnShatterScreen" title="Crack screen glass across all synced devices">
+                  Shatter
+                </button>
+
+                <button class="px-3 py-2.5 bg-black border border-doom-dim text-gray-400 font-mono text-xs uppercase tracking-wide rounded hover:border-doom-green hover:text-doom-green transition active:scale-95" id="btnRepairScreen" title="Clear glass cracks across all synced devices">
+                  Repair
+                </button>
+
+                <button class="px-3 py-2.5 bg-black border border-orange-500/50 text-orange-400 font-mono text-xs uppercase tracking-wide rounded hover:bg-orange-600 hover:text-white transition active:scale-95" id="btnPlaySiren" title="Sound Doomsday Siren across all devices">
+                  Siren
+                </button>
+
+                <button class="p-2.5 border border-doom-dim text-gray-400 rounded hover:text-doom-green hover:border-doom-green transition active:scale-95" id="btnMuteAudio" title="Mute/Unmute Local Device Audio">
+                  <svg class="w-4 h-4" fill="none" id="soundIconOn" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.08" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
+                  <svg class="w-4 h-4 hidden text-red-400" fill="none" id="soundIconOff" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Custom Time Setter Row -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-doom-border/40 text-[11px] font-mono">
+              <div class="flex items-center gap-2">
+                <span class="text-gray-400">SET CUSTOM TIME (HH:MM:SS):</span>
+                <input class="w-24 px-2 py-1 bg-black/90 border border-doom-dim rounded text-doom-green text-center font-mono text-xs focus:border-doom-green focus:ring-0" id="customTimeInput" placeholder="24:00:00" type="text" value="24:00:00"/>
+                <button class="px-2.5 py-1 bg-doom-dim/60 border border-doom-green/40 text-doom-green rounded hover:bg-doom-green hover:text-black transition uppercase" id="btnSetCustomTime">Apply</button>
+              </div>
+
+              <div class="flex items-center gap-2 text-gray-400">
+                <span id="audioPackStatus">AUDIO PACK: LOADING...</span>
+                <button class="px-2 py-1 border border-doom-dim rounded hover:border-doom-green hover:text-doom-green transition" id="btnToggleKiosk" title="Switch to clean projector display mode (?kiosk=1)">Display Mode</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- LAN Share & Multi-Device Sync Strip -->
+          <div class="lan-share-strip mt-3 pt-2.5 border-t border-doom-border/40 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-gray-400">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-doom-green font-bold">MULTI-DEVICE SYNC URL:</span>
+              <code class="px-2 py-0.5 rounded bg-black/80 border border-doom-border text-gray-200 select-all" id="lanUrlDisplay">Detecting LAN IP...</code>
+              <button class="px-2 py-0.5 rounded bg-doom-panel border border-doom-green/40 text-doom-green hover:bg-doom-green hover:text-black transition" id="btnCopyLanUrl">Copy</button>
+            </div>
+            <span class="text-gray-500">CENTRALIZED WEBSOCKET + SLICED DOOMSDAY SFX ENGINE</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Status Bar -->
+    <footer class="w-full flex flex-wrap items-center justify-between gap-2 py-2 text-[11px] font-mono text-gray-600 border-t border-doom-border/40">
+      <span>PADRE CONCEIÇÃO COLLEGE OF ENGINEERING • DEPT. OF CSE • TECHYON 2026 // DOOM N DEBUG</span>
+      <button class="hidden text-gray-500 hover:text-doom-green underline" id="btnExitKiosk">Exit Display Mode</button>
+    </footer>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- SLICED DOOMSDAY AUDIO ENGINE (Web Audio Buffer + HTML5 Fallback)      -->
+  <!-- ===================================================================== -->
+  <script data-purpose="audio-siren-synth">
+    const AUDIO_CLIPS = {
+      alarm_pulse: '/audio/alarm_pulse.mp3',
+      alarm_alert: '/audio/alarm_alert.mp3',
+      siren_doomsday: '/audio/siren_doomsday.mp3',
+      siren_klaxon: '/audio/siren_klaxon.mp3',
+      siren_critical: '/audio/siren_critical.mp3',
+      beep_short: '/audio/beep_short.mp3',
+      beep_warning: '/audio/beep_warning.mp3',
+      tick_clock: '/audio/tick_clock.mp3',
+      blast_emp: '/audio/blast_emp.mp3',
+      explosion_heavy: '/audio/explosion_heavy.mp3',
+      explosion_blast: '/audio/explosion_blast.mp3',
+      shot_burst: '/audio/shot_burst.mp3',
+      doomsday_finale: '/audio/doomsday_finale.mp3',
+      impact_shatter: '/audio/impact_shatter.mp3'
+    };
+
+    let audioCtx = null;
+    let isSoundMuted = false;
+    let isAudioUnlocked = false;
+    const decodedBuffers = {};
+    const activeSources = new Set();
+
+    const soundBadgeEl = document.getElementById('soundStatusBadge');
+    const audioPackStatusEl = document.getElementById('audioPackStatus');
+
+    function ensureAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+          isAudioUnlocked = true;
+          updateSoundBadge();
+        }).catch(() => {});
+      } else if (audioCtx && audioCtx.state === 'running') {
+        isAudioUnlocked = true;
+        updateSoundBadge();
+      }
+      return audioCtx;
+    }
+
+    function updateSoundBadge() {
+      if (!soundBadgeEl) return;
+      if (isSoundMuted) {
+        soundBadgeEl.textContent = 'MUTED';
+        soundBadgeEl.className = 'text-gray-500 font-bold uppercase cursor-pointer';
+      } else if (!isAudioUnlocked) {
+        soundBadgeEl.textContent = 'CLICK TO ARM';
+        soundBadgeEl.className = 'text-yellow-400 font-bold uppercase animate-pulse cursor-pointer';
+      } else {
+        soundBadgeEl.textContent = 'ARMED';
+        soundBadgeEl.className = 'text-doom-green font-bold uppercase cursor-pointer';
+      }
+    }
+
+    // Preload & decode all sliced MP3 clips
+    async function preloadAudioPack() {
+      const ctx = ensureAudioContext();
+      const entries = Object.entries(AUDIO_CLIPS);
+      let loadedCount = 0;
+
+      await Promise.all(entries.map(async ([key, url]) => {
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) return;
+          const arrayBuf = await resp.arrayBuffer();
+          if (ctx) {
+            decodedBuffers[key] = await ctx.decodeAudioData(arrayBuf);
+          }
+          loadedCount++;
+          if (audioPackStatusEl) {
+            audioPackStatusEl.textContent = `SFX PACK: ${loadedCount}/${entries.length} READY`;
+          }
+        } catch (err) {
+          console.warn(`Audio load warning for ${key}:`, err);
+        }
+      }));
+    }
+
+    // Unlock audio on first user gesture
+    function unlockAudioOnGesture() {
+      const ctx = ensureAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().then(() => {
+          isAudioUnlocked = true;
+          updateSoundBadge();
+        });
+      } else if (ctx) {
+        isAudioUnlocked = true;
+        updateSoundBadge();
+      }
+    }
+    window.addEventListener('pointerdown', unlockAudioOnGesture, { passive: true });
+    window.addEventListener('keydown', unlockAudioOnGesture, { passive: true });
+
+    function playClip(name, volume = 0.85, playbackRate = 1.0) {
+      if (isSoundMuted) return null;
+      const ctx = ensureAudioContext();
+
+      if (ctx && decodedBuffers[name]) {
+        try {
+          const source = ctx.createBufferSource();
+          const gainNode = ctx.createGain();
+          source.buffer = decodedBuffers[name];
+          source.playbackRate.value = playbackRate;
+          gainNode.gain.value = volume;
+          source.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          source.start(0);
+          activeSources.add(source);
+          source.onended = () => activeSources.delete(source);
+          return source;
+        } catch (e) {
+          console.warn('WebAudio play fallback:', e);
+        }
+      }
+
+      // Fallback HTML5 Audio element if buffer isn't decoded yet
+      if (AUDIO_CLIPS[name]) {
+        const audio = new Audio(AUDIO_CLIPS[name]);
+        audio.volume = Math.min(1, volume);
+        audio.playbackRate = playbackRate;
+        audio.play().catch(() => {});
+        return audio;
+      }
+      return null;
+    }
+
+    function stopAllActiveSounds() {
+      for (const src of activeSources) {
+        try { src.stop(); } catch {}
+      }
+      activeSources.clear();
+    }
+
+    // Synthesized backup klaxon (layers nicely with real clips)
+    function playSynthKlaxon(frequency1 = 520, frequency2 = 310, duration = 0.65) {
+      if (isSoundMuted) return;
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'square';
+      osc1.frequency.setValueAtTime(frequency1, now);
+      osc1.frequency.exponentialRampToValueAtTime(frequency2, now + duration * 0.75);
+      osc2.frequency.setValueAtTime(frequency1 * 0.5, now);
+      osc2.frequency.exponentialRampToValueAtTime(frequency2 * 0.5, now + duration * 0.75);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1600, now);
+      filter.Q.setValueAtTime(5, now);
+
+      gainNode.gain.setValueAtTime(0.001, now);
+      gainNode.gain.linearRampToValueAtTime(0.28, now + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + duration);
+      osc2.stop(now + duration);
+    }
+
+    // Event SFX orchestrations
+    function sfxDoomLaunch() {
+      playClip('blast_emp', 0.9);
+      setTimeout(() => playClip('alarm_alert', 0.55), 350);
+    }
+
+    function sfx12HourBreach() {
+      playClip('impact_shatter', 0.9);
+      playClip('siren_klaxon', 0.85);
+      setTimeout(() => playClip('alarm_pulse', 0.75), 1800);
+    }
+
+    function sfxDoomSequence() {
+      playClip('explosion_blast', 0.95);
+      setTimeout(() => playClip('impact_shatter', 0.8), 120);
+    }
+
+    function sfxShatterScreen() {
+      playClip('impact_shatter', 0.95);
+    }
+
+    function sfxSirenBlast() {
+      playClip('siren_doomsday', 0.85);
+    }
+
+    function sfxFinalCountdownTick(secondsLeft) {
+      if (secondsLeft <= 5 && secondsLeft >= 1) {
+        playClip('beep_warning', 0.85);
+      } else if (secondsLeft <= 10 && secondsLeft > 5) {
+        playClip('beep_short', 0.8);
+      }
+    }
+
+    function sfxFinalDoom() {
+      playClip('doomsday_finale', 1.0);
+      setTimeout(() => playClip('explosion_heavy', 0.95), 400);
+      setTimeout(() => playClip('impact_shatter', 0.9), 800);
+    }
+
+    preloadAudioPack();
+    updateSoundBadge();
+  </script>
+
+  <!-- ===================================================================== -->
+  <!-- DOOMSDAY VISUAL FX: SHATTERED GLASS + PARTICLES + SHOCKWAVES          -->
+  <!-- ===================================================================== -->
+  <script data-purpose="doomsday-vfx">
+    const shatterCanvas = document.getElementById('shatterCanvas');
+    const shatterCtx = shatterCanvas.getContext('2d');
+    const particlesCanvas = document.getElementById('particlesCanvas');
+    const particlesCtx = particlesCanvas.getContext('2d');
+    const shockwaveContainer = document.getElementById('shockwaveContainer');
+
+    let currentCracks = [];
+    const shards = [];
+    const ambientEmbers = [];
+    let isCriticalTheme = false;
+
+    function resizeCanvases() {
+      shatterCanvas.width = window.innerWidth;
+      shatterCanvas.height = window.innerHeight;
+      particlesCanvas.width = window.innerWidth;
+      particlesCanvas.height = window.innerHeight;
+      renderAllCracks();
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // Deterministic PRNG so cracks look identical across every synced computer
+    function mulberry32(seed) {
+      return function() {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function drawCrackImpact(crack) {
+      const w = shatterCanvas.width;
+      const h = shatterCanvas.height;
+      const cx = crack.x * w;
+      const cy = crack.y * h;
+      const scale = crack.scale || 1.0;
+      const rand = mulberry32(crack.seed || 42);
+
+      const maxRadius = Math.min(w, h) * 0.48 * scale;
+      const rayCount = 13 + Math.floor(rand() * 7);
+      const rays = [];
+
+      shatterCtx.save();
+
+      // Subtle translucent glass shards near center
+      for (let i = 0; i < 9; i++) {
+        const a1 = rand() * Math.PI * 2;
+        const a2 = a1 + 0.15 + rand() * 0.35;
+        const r1 = 10 + rand() * 55 * scale;
+        const r2 = 15 + rand() * 65 * scale;
+        shatterCtx.beginPath();
+        shatterCtx.moveTo(cx, cy);
+        shatterCtx.lineTo(cx + Math.cos(a1) * r1, cy + Math.sin(a1) * r1);
+        shatterCtx.lineTo(cx + Math.cos(a2) * r2, cy + Math.sin(a2) * r2);
+        shatterCtx.closePath();
+        shatterCtx.fillStyle = isCriticalTheme
+          ? `rgba(255, 80, 110, ${0.05 + rand() * 0.08})`
+          : `rgba(180, 255, 220, ${0.05 + rand() * 0.07})`;
+        shatterCtx.fill();
+      }
+
+      // Generate jagged radial crack paths
+      for (let i = 0; i < rayCount; i++) {
+        const baseAngle = (i / rayCount) * Math.PI * 2 + (rand() - 0.5) * 0.25;
+        const rayLen = maxRadius * (0.45 + rand() * 0.65);
+        const steps = 6 + Math.floor(rand() * 5);
+        const pts = [{ x: cx, y: cy }];
+        let curAngle = baseAngle;
+
+        for (let s = 1; s <= steps; s++) {
+          const dist = (s / steps) * rayLen;
+          curAngle += (rand() - 0.5) * 0.22;
+          pts.push({
+            x: cx + Math.cos(curAngle) * dist,
+            y: cy + Math.sin(curAngle) * dist
+          });
+        }
+        rays.push(pts);
+
+        // Draw dark shadow fracture behind bright glass highlight
+        shatterCtx.beginPath();
+        shatterCtx.moveTo(pts[0].x, pts[0].y);
+        for (let p = 1; p < pts.length; p++) {
+          shatterCtx.lineTo(pts[p].x, pts[p].y);
+        }
+        shatterCtx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+        shatterCtx.lineWidth = 3.2;
+        shatterCtx.stroke();
+
+        // Bright glass refraction edge
+        shatterCtx.beginPath();
+        shatterCtx.moveTo(pts[0].x, pts[0].y);
+        for (let p = 1; p < pts.length; p++) {
+          shatterCtx.lineTo(pts[p].x, pts[p].y);
+        }
+        shatterCtx.strokeStyle = isCriticalTheme
+          ? 'rgba(255, 190, 200, 0.72)'
+          : 'rgba(220, 255, 235, 0.7)';
+        shatterCtx.lineWidth = 1.3;
+        shatterCtx.stroke();
+
+        // Secondary branches
+        if (rand() > 0.35 && pts.length > 3) {
+          const branchStart = pts[2 + Math.floor(rand() * (pts.length - 3))];
+          const bAngle = curAngle + (rand() > 0.5 ? 0.55 : -0.55) + (rand() - 0.5) * 0.2;
+          const bLen = rayLen * (0.25 + rand() * 0.25);
+          const midX = branchStart.x + Math.cos(bAngle) * (bLen * 0.5);
+          const midY = branchStart.y + Math.sin(bAngle) * (bLen * 0.5);
+          const endX = midX + Math.cos(bAngle + (rand() - 0.5) * 0.3) * (bLen * 0.5);
+          const endY = midY + Math.sin(bAngle + (rand() - 0.5) * 0.3) * (bLen * 0.5);
+
+          shatterCtx.beginPath();
+          shatterCtx.moveTo(branchStart.x, branchStart.y);
+          shatterCtx.lineTo(midX, midY);
+          shatterCtx.lineTo(endX, endY);
+          shatterCtx.strokeStyle = 'rgba(225, 255, 240, 0.45)';
+          shatterCtx.lineWidth = 0.9;
+          shatterCtx.stroke();
+        }
+      }
+
+      // Concentric web rings
+      const rings = [0.16, 0.34, 0.55, 0.76];
+      rings.forEach((ringPct, rIdx) => {
+        for (let i = 0; i < rays.length; i++) {
+          if (rand() < 0.25 && rIdx > 1) continue; // realistic gaps in outer rings
+          const rA = rays[i];
+          const rB = rays[(i + 1) % rays.length];
+          const idxA = Math.min(rA.length - 1, Math.max(1, Math.floor(ringPct * (rA.length - 1))));
+          const idxB = Math.min(rB.length - 1, Math.max(1, Math.floor(ringPct * (rB.length - 1))));
+
+          shatterCtx.beginPath();
+          shatterCtx.moveTo(rA[idxA].x, rA[idxA].y);
+          shatterCtx.lineTo(rB[idxB].x, rB[idxB].y);
+          shatterCtx.strokeStyle = `rgba(220, 255, 235, ${0.48 - rIdx * 0.08})`;
+          shatterCtx.lineWidth = 1.0;
+          shatterCtx.stroke();
+        }
+      });
+
+      // Impact Crater Core
+      const grad = shatterCtx.createRadialGradient(cx, cy, 1, cx, cy, 20 * scale);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+      grad.addColorStop(0.35, isCriticalTheme ? 'rgba(255, 50, 90, 0.45)' : 'rgba(0, 255, 102, 0.4)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      shatterCtx.fillStyle = grad;
+      shatterCtx.beginPath();
+      shatterCtx.arc(cx, cy, 20 * scale, 0, Math.PI * 2);
+      shatterCtx.fill();
+
+      shatterCtx.restore();
+    }
+
+    function renderAllCracks() {
+      shatterCtx.clearRect(0, 0, shatterCanvas.width, shatterCanvas.height);
+      for (const crack of currentCracks) {
+        drawCrackImpact(crack);
+      }
+    }
+
+    function spawnFlyingShards(normX = 0.5, normY = 0.5, count = 42) {
+      const cx = normX * particlesCanvas.width;
+      const cy = normY * particlesCanvas.height;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2.5 + Math.random() * 11;
+        shards.push({
+          x: cx,
+          y: cy,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 3.5,
+          size: 4 + Math.random() * 12,
+          rot: Math.random() * Math.PI * 2,
+          vRot: (Math.random() - 0.5) * 0.25,
+          alpha: 0.95,
+          isSpark: i % 3 === 0
+        });
+      }
+    }
+
+    function spawnShockwave(normX = 0.5, normY = 0.5, isAlert = false) {
+      const ring = document.createElement('div');
+      ring.className = `shockwave-ring${isAlert ? ' alert-ring' : ''}`;
+      ring.style.left = `${normX * 100}%`;
+      ring.style.top = `${normY * 100}%`;
+      shockwaveContainer.appendChild(ring);
+      setTimeout(() => ring.remove(), 800);
+    }
+
+    // Initialize floating nuclear embers
+    for (let i = 0; i < 45; i++) {
+      ambientEmbers.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        vy: -0.35 - Math.random() * 1.1,
+        vx: (Math.random() - 0.5) * 0.5,
+        size: 1.2 + Math.random() * 2.4,
+        alpha: 0.15 + Math.random() * 0.55
+      });
+    }
+
+    function animateParticles() {
+      particlesCtx.clearRect(0, 0, particlesCanvas.width, particlesCanvas.height);
+
+      // Draw ambient fallout embers
+      for (const e of ambientEmbers) {
+        e.x += e.vx + Math.sin(Date.now() * 0.001 + e.y * 0.01) * 0.25;
+        e.y += e.vy * (isCriticalTheme ? 1.8 : 1.0);
+        if (e.y < -10) {
+          e.y = particlesCanvas.height + 10;
+          e.x = Math.random() * particlesCanvas.width;
+        }
+        if (e.x < 0) e.x = particlesCanvas.width;
+        if (e.x > particlesCanvas.width) e.x = 0;
+
+        particlesCtx.beginPath();
+        particlesCtx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+        particlesCtx.fillStyle = isCriticalTheme
+          ? `rgba(255, 45, 85, ${e.alpha})`
+          : `rgba(0, 255, 102, ${e.alpha * 0.7})`;
+        particlesCtx.fill();
+      }
+
+      // Draw flying glass shards & blast sparks
+      for (let i = shards.length - 1; i >= 0; i--) {
+        const s = shards[i];
+        s.x += s.vx;
+        s.y += s.vy;
+        s.vy += 0.34; // gravity
+        s.vx *= 0.99;
+        s.rot += s.vRot;
+        s.alpha -= 0.016;
+
+        if (s.alpha <= 0 || s.y > particlesCanvas.height + 40) {
+          shards.splice(i, 1);
+          continue;
+        }
+
+        particlesCtx.save();
+        particlesCtx.translate(s.x, s.y);
+        particlesCtx.rotate(s.rot);
+        if (s.isSpark) {
+          particlesCtx.fillStyle = isCriticalTheme
+            ? `rgba(255, 90, 60, ${s.alpha})`
+            : `rgba(120, 255, 160, ${s.alpha})`;
+          particlesCtx.fillRect(-s.size * 0.6, -1.5, s.size * 1.2, 3);
+        } else {
+          // Triangular glass shard
+          particlesCtx.beginPath();
+          particlesCtx.moveTo(0, -s.size * 0.6);
+          particlesCtx.lineTo(s.size * 0.5, s.size * 0.5);
+          particlesCtx.lineTo(-s.size * 0.5, s.size * 0.3);
+          particlesCtx.closePath();
+          particlesCtx.fillStyle = `rgba(210, 255, 240, ${s.alpha * 0.45})`;
+          particlesCtx.strokeStyle = `rgba(255, 255, 255, ${s.alpha * 0.85})`;
+          particlesCtx.lineWidth = 1;
+          particlesCtx.fill();
+          particlesCtx.stroke();
+        }
+        particlesCtx.restore();
+      }
+
+      requestAnimationFrame(animateParticles);
+    }
+
+    resizeCanvases();
+    requestAnimationFrame(animateParticles);
+  </script>
+
+  <!-- ===================================================================== -->
+  <!-- CENTRALIZED WEBSOCKET SYNC & TIMER ENGINE                             -->
+  <!-- ===================================================================== -->
+  <script data-purpose="timer-and-doom-animation">
+    const THRESHOLD_12H_MS = 12 * 60 * 60 * 1000;
+
+    // Canonical state synced from server
+    let syncedState = {
+      totalDurationMs: 24 * 60 * 60 * 1000,
+      remainingMsWhenPaused: 24 * 60 * 60 * 1000,
+      isRunning: false,
+      endTimestamp: null,
+      threshold12hTriggered: false,
+      expiredTriggered: false,
+      cracks: []
+    };
+
+    // Clock skew offset: estimatedServerNow = Date.now() + clockOffsetMs
+    let clockOffsetMs = 0;
+    let bestRttMs = Infinity;
+    let ws = null;
+    let reconnectDelay = 1000;
+    let lastDisplayedSecond = -1;
+
+    // Kiosk display mode check (?kiosk=1)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('kiosk') === '1') {
+      document.body.classList.add('kiosk-mode');
+      document.getElementById('btnExitKiosk').classList.remove('hidden');
+    }
+
+    // DOM References
+    const pageBody = document.getElementById('pageBody');
+    const appContainer = document.getElementById('appContainer');
+    const doomFlashOverlay = document.getElementById('doomFlashOverlay');
+    const sirenStrobeOverlay = document.getElementById('sirenStrobeOverlay');
+    const timerCard = document.getElementById('timerCardContainer');
+    const heroTitle = document.getElementById('heroTitle');
+    const cyberGrid = document.getElementById('cyberGrid');
+
+    const elHours = document.getElementById('clockHours');
+    const elMinutes = document.getElementById('clockMinutes');
+    const elSeconds = document.getElementById('clockSeconds');
+    const progressBar = document.getElementById('countdownProgressBar');
+
+    const elStatusDot = document.getElementById('systemStatusDot');
+    const elStatusText = document.getElementById('systemStatusText');
+    const thresholdBanner = document.getElementById('thresholdBanner');
+    const expiredBanner = document.getElementById('expiredBanner');
+    const thresholdBadge = document.getElementById('thresholdBadge');
+    const defconBadge = document.getElementById('defconBadge');
+
+    const syncDot = document.getElementById('syncDot');
+    const syncText = document.getElementById('syncText');
+    const nodesCountBadge = document.getElementById('nodesCountBadge');
+    const lanUrlDisplay = document.getElementById('lanUrlDisplay');
+
+    const btnToggle = document.getElementById('btnToggleTimer');
+    const btnReset = document.getElementById('btnResetTimer');
+    const btnFastForward12h = document.getElementById('btnFastForward12h');
+    const btnFastForwardEnd = document.getElementById('btnFastForwardEnd');
+    const btnDoomAnim = document.getElementById('btnDoomAnimation');
+    const btnShatter = document.getElementById('btnShatterScreen');
+    const btnRepair = document.getElementById('btnRepairScreen');
+    const btnPlaySiren = document.getElementById('btnPlaySiren');
+    const btnMute = document.getElementById('btnMuteAudio');
+    const soundOnIcon = document.getElementById('soundIconOn');
+    const soundOffIcon = document.getElementById('soundIconOff');
+    const customTimeInput = document.getElementById('customTimeInput');
+    const btnSetCustomTime = document.getElementById('btnSetCustomTime');
+    const btnCopyLanUrl = document.getElementById('btnCopyLanUrl');
+    const btnToggleKiosk = document.getElementById('btnToggleKiosk');
+    const btnExitKiosk = document.getElementById('btnExitKiosk');
+
+    function padZero(num) {
+      return num < 10 ? `0${num}` : `${num}`;
+    }
+
+    function getEstimatedServerNow() {
+      return Date.now() + clockOffsetMs;
+    }
+
+    function getRemainingMs() {
+      if (syncedState.isRunning && syncedState.endTimestamp !== null) {
+        return Math.max(0, syncedState.endTimestamp - getEstimatedServerNow());
+      }
+      return Math.max(0, syncedState.remainingMsWhenPaused);
+    }
+
+    function triggerVisualShake(heavy = false) {
+      const cls = heavy ? 'animate-screen-shake-heavy' : 'animate-screen-shake';
+      appContainer.classList.remove('animate-screen-shake', 'animate-screen-shake-heavy');
+      void appContainer.offsetWidth;
+      appContainer.classList.add(cls);
+    }
+
+    function triggerGlitchBurst(durationMs = 950) {
+      heroTitle.classList.add('glitch-tear-active');
+      setTimeout(() => {
+        heroTitle.classList.remove('glitch-tear-active');
+      }, durationMs);
+    }
+
+    function triggerScreenFlash(colorClass = 'bg-doom-green', durationMs = 220) {
+      doomFlashOverlay.className = `fixed inset-0 pointer-events-none z-40 mix-blend-screen ${colorClass}`;
+      doomFlashOverlay.style.opacity = '0.88';
+      setTimeout(() => {
+        doomFlashOverlay.style.opacity = '0';
+      }, durationMs);
+    }
+
+    function triggerDoomLaunchFX() {
+      sfxDoomLaunch();
+      triggerScreenFlash('bg-doom-green', 240);
+      triggerVisualShake(false);
+      triggerGlitchBurst(800);
+      spawnShockwave(0.5, 0.5, false);
+      spawnFlyingShards(0.5, 0.5, 24);
+    }
+
+    function triggerDoomSequenceFX(crack = null) {
+      sfxDoomSequence();
+      triggerScreenFlash('bg-doom-alert', 280);
+      triggerVisualShake(true);
+      triggerGlitchBurst(1100);
+      const x = crack ? crack.x : 0.5;
+      const y = crack ? crack.y : 0.5;
+      spawnShockwave(x, y, true);
+      spawnFlyingShards(x, y, 50);
+    }
+
+    function triggerShatterFX(crack = null) {
+      sfxShatterScreen();
+      triggerScreenFlash('bg-white', 120);
+      triggerVisualShake(false);
+      triggerGlitchBurst(500);
+      const x = crack ? crack.x : 0.5;
+      const y = crack ? crack.y : 0.5;
+      spawnShockwave(x, y, isCriticalTheme);
+      spawnFlyingShards(x, y, 45);
+    }
+
+    function trigger12HourBreachFX() {
+      sfx12HourBreach();
+      triggerScreenFlash('bg-doom-alert', 400);
+      triggerVisualShake(true);
+      triggerGlitchBurst(1600);
+      spawnShockwave(0.28, 0.35, true);
+      spawnShockwave(0.74, 0.62, true);
+      spawnFlyingShards(0.28, 0.35, 36);
+      spawnFlyingShards(0.74, 0.62, 36);
+    }
+
+    function triggerFinalDoomFX() {
+      sfxFinalDoom();
+      triggerScreenFlash('bg-doom-alert', 700);
+      triggerVisualShake(true);
+      triggerGlitchBurst(3000);
+      spawnShockwave(0.5, 0.5, true);
+      spawnFlyingShards(0.5, 0.5, 95);
+    }
+
+    function applyCriticalVisualState(isCritical, isExpired, remainingMs) {
+      isCriticalTheme = isCritical || isExpired;
+
+      if (isCriticalTheme) {
+        pageBody.classList.add('doom-critical-mode');
+        cyberGrid.style.backgroundImage = 'linear-gradient(to right, #ff003c 1px, transparent 1px), linear-gradient(to bottom, #ff003c 1px, transparent 1px)';
+
+        sirenStrobeOverlay.classList.add('siren-active-strobe');
+        sirenStrobeOverlay.style.opacity = '1';
+
+        timerCard.classList.remove('border-doom-green/60', 'border-glow-toxic');
+        timerCard.classList.add('border-doom-alert', 'border-glow-alert');
+
+        thresholdBadge.className = 'px-2.5 py-0.5 rounded bg-doom-alert/40 text-red-300 border border-doom-alert font-bold tracking-wider flex items-center gap-1.5 animate-pulse';
+
+        elSeconds.classList.add('text-doom-alert', 'glow-alert');
+        elSeconds.classList.remove('text-doom-green', 'glow-toxic');
+        progressBar.className = 'h-full bg-gradient-to-r from-red-600 to-doom-alert transition-all duration-300 relative z-10';
+      } else {
+        pageBody.classList.remove('doom-critical-mode');
+        cyberGrid.style.backgroundImage = 'linear-gradient(to right, #00ff66 1px, transparent 1px), linear-gradient(to bottom, #00ff66 1px, transparent 1px)';
+
+        sirenStrobeOverlay.classList.remove('siren-active-strobe');
+        sirenStrobeOverlay.style.opacity = '0';
+
+        timerCard.classList.add('border-doom-green/60', 'border-glow-toxic');
+        timerCard.classList.remove('border-doom-alert', 'border-glow-alert');
+
+        thresholdBadge.className = 'px-2.5 py-0.5 rounded bg-yellow-950/40 text-yellow-400 border border-yellow-500/50 font-bold tracking-wider flex items-center gap-1.5';
+
+        elSeconds.classList.remove('text-doom-alert', 'glow-alert');
+        elSeconds.classList.add('text-doom-green', 'glow-toxic');
+        progressBar.className = 'h-full bg-gradient-to-r from-doom-green to-doom-lime transition-all duration-300 relative z-10';
+      }
+
+      // Banners & Status Text
+      if (isExpired) {
+        thresholdBanner.classList.add('hidden');
+        expiredBanner.classList.remove('hidden');
+        elStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-doom-alert animate-ping';
+        elStatusText.className = 'text-doom-alert font-extrabold uppercase tracking-wider glow-alert';
+        elStatusText.textContent = 'TIME EXPIRED // SURVIVAL TERMINATED';
+        defconBadge.textContent = 'EXTINCTION';
+        defconBadge.className = 'px-2.5 py-1 rounded border border-doom-alert bg-red-950/90 text-[10px] sm:text-xs font-mono font-bold tracking-wider text-red-200 animate-pulse';
+      } else if (isCritical) {
+        expiredBanner.classList.add('hidden');
+        thresholdBanner.classList.remove('hidden');
+        elStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-doom-alert animate-ping';
+        elStatusText.className = 'text-doom-alert font-extrabold uppercase tracking-wider glow-alert';
+        elStatusText.textContent = syncedState.isRunning ? 'CRITICAL 12H BREACHED' : 'CRITICAL PAUSED';
+
+        if (remainingMs <= 3600 * 1000) {
+          defconBadge.textContent = 'DEFCON 1';
+          defconBadge.className = 'px-2.5 py-1 rounded border border-doom-alert bg-red-950/80 text-[10px] sm:text-xs font-mono font-bold tracking-wider text-doom-alert animate-pulse';
+        } else {
+          defconBadge.textContent = 'DEFCON 2';
+          defconBadge.className = 'px-2.5 py-1 rounded border border-doom-alert/70 bg-red-950/50 text-[10px] sm:text-xs font-mono font-bold tracking-wider text-red-300';
+        }
+      } else {
+        expiredBanner.classList.add('hidden');
+        thresholdBanner.classList.add('hidden');
+        if (syncedState.isRunning) {
+          elStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-doom-green animate-pulse';
+          elStatusText.className = 'text-doom-green font-bold tracking-wider uppercase';
+          elStatusText.textContent = 'SURVIVAL RUNNING';
+        } else {
+          elStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-yellow-400';
+          elStatusText.className = 'text-yellow-300 font-bold tracking-wider uppercase';
+          elStatusText.textContent = 'STANDBY // PAUSED';
+        }
+        defconBadge.textContent = 'DEFCON 4';
+        defconBadge.className = 'px-2.5 py-1 rounded border border-doom-green/40 bg-doom-panel/90 text-[10px] sm:text-xs font-mono font-bold tracking-wider text-doom-green';
+      }
+
+      // Toggle button style
+      if (isExpired) {
+        btnToggle.textContent = 'Restart (24h)';
+        btnToggle.className = 'px-5 py-2.5 bg-doom-alert text-white font-orbitron font-extrabold text-xs uppercase tracking-wider rounded hover:bg-red-500 transition active:scale-95 shadow-[0_0_15px_rgba(255,0,60,0.5)]';
+      } else if (syncedState.isRunning) {
+        btnToggle.textContent = 'Pause Clock';
+        btnToggle.className = 'px-5 py-2.5 bg-yellow-500 text-black font-orbitron font-extrabold text-xs uppercase tracking-wider rounded hover:bg-yellow-400 transition active:scale-95 shadow-[0_0_15px_rgba(234,179,8,0.4)]';
+      } else {
+        btnToggle.textContent = 'Start Clock';
+        btnToggle.className = 'px-5 py-2.5 bg-doom-green text-black font-orbitron font-extrabold text-xs uppercase tracking-wider rounded hover:bg-doom-lime transition active:scale-95 shadow-[0_0_15px_rgba(0,255,102,0.4)]';
+      }
+    }
+
+    function renderClockTick() {
+      const remainingMs = getRemainingMs();
+      const totalSeconds = Math.ceil(remainingMs / 1000);
+
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      elHours.textContent = padZero(hours);
+      elMinutes.textContent = padZero(minutes);
+      elSeconds.textContent = padZero(seconds);
+
+      const denom = Math.max(1, syncedState.totalDurationMs);
+      const progressPercent = Math.min(100, Math.max(0, (remainingMs / denom) * 100));
+      progressBar.style.width = `${progressPercent}%`;
+
+      const isCritical = syncedState.threshold12hTriggered || (remainingMs <= THRESHOLD_12H_MS && remainingMs > 0);
+      const isExpired = syncedState.expiredTriggered || remainingMs <= 0;
+
+      applyCriticalVisualState(isCritical, isExpired, remainingMs);
+
+      // Final 10 seconds tick feedback when running
+      if (syncedState.isRunning && totalSeconds !== lastDisplayedSecond) {
+        if (totalSeconds <= 10 && totalSeconds >= 1) {
+          sfxFinalCountdownTick(totalSeconds);
+          elSeconds.classList.remove('final-tick-pop');
+          void elSeconds.offsetWidth;
+          elSeconds.classList.add('final-tick-pop');
+        }
+        lastDisplayedSecond = totalSeconds;
+      } else if (!syncedState.isRunning) {
+        lastDisplayedSecond = totalSeconds;
+      }
+    }
+
+    // 50ms precision render loop
+    setInterval(renderClockTick, 50);
+
+    // =====================================================================
+    // WEBSOCKET CLIENT CONNECTION + CLOCK OFFSET CALIBRATION
+    // =====================================================================
+    function sendWS(payload) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+      }
+    }
+
+    function sendPing() {
+      sendWS({ type: 'ping', clientTime: Date.now() });
+    }
+
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        reconnectDelay = 1000;
+        syncDot.className = 'w-2 h-2 rounded-full bg-doom-green animate-pulse';
+        syncText.textContent = 'SYNC: LIVE';
+        syncText.className = 'text-doom-green font-bold';
+        // Calibrate clock offset immediately with burst pings
+        sendPing();
+        setTimeout(sendPing, 400);
+        setTimeout(sendPing, 900);
+      };
+
+      ws.onmessage = (event) => {
+        let msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+
+        if (msg.type === 'pong') {
+          const now = Date.now();
+          const rtt = now - msg.clientTime;
+          if (rtt < bestRttMs || bestRttMs === Infinity) {
+            bestRttMs = rtt;
+            clockOffsetMs = msg.serverTime + rtt / 2 - now;
+          } else {
+            // Smoothly adjust offset
+            const sampleOffset = msg.serverTime + rtt / 2 - now;
+            clockOffsetMs = clockOffsetMs * 0.7 + sampleOffset * 0.3;
+          }
+          return;
+        }
+
+        if (typeof msg.connectedClients === 'number') {
+          nodesCountBadge.textContent = `${msg.connectedClients} ${msg.connectedClients === 1 ? 'NODE' : 'NODES'}`;
+        }
+
+        if (msg.type === 'sync') {
+          // Rough offset if we haven't ponged yet
+          if (bestRttMs === Infinity && typeof msg.serverNow === 'number') {
+            clockOffsetMs = msg.serverNow - Date.now();
+          }
+
+          syncedState = msg.state;
+          currentCracks = syncedState.cracks || [];
+          renderAllCracks();
+          renderClockTick();
+
+          // Handle synchronized events across all devices
+          switch (msg.event) {
+            case 'doom_launch':
+              triggerDoomLaunchFX();
+              break;
+            case '12h_breach':
+              trigger12HourBreachFX();
+              break;
+            case 'final_doom':
+              triggerFinalDoomFX();
+              break;
+            case 'doom_sequence':
+              triggerDoomSequenceFX(msg.eventData && msg.eventData.crack);
+              break;
+            case 'screen_shatter':
+              triggerShatterFX(msg.eventData && msg.eventData.crack);
+              break;
+            case 'screen_repaired':
+              triggerScreenFlash('bg-doom-green', 120);
+              break;
+            case 'clock_reset':
+              stopAllActiveSounds();
+              triggerScreenFlash('bg-doom-green', 140);
+              break;
+            default:
+              break;
+          }
+        } else if (msg.type === 'event' && msg.event === 'siren_blast') {
+          sfxSirenBlast();
+          triggerScreenFlash('bg-doom-alert', 300);
+          triggerVisualShake(false);
+        }
+      };
+
+      ws.onclose = () => {
+        syncDot.className = 'w-2 h-2 rounded-full bg-doom-alert animate-ping';
+        syncText.textContent = 'RECONNECTING...';
+        syncText.className = 'text-doom-alert font-bold';
+        setTimeout(() => {
+          reconnectDelay = Math.min(8000, reconnectDelay * 1.5);
+          connectWebSocket();
+        }, reconnectDelay);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    }
+
+    // Periodic clock calibration ping every 15s
+    setInterval(sendPing, 15000);
+
+    // Fetch LAN URL info for easy multi-device opening
+    async function loadNetworkInfo() {
+      try {
+        const res = await fetch('/api/network-info');
+        const data = await res.json();
+        const url = (data.lanUrls && data.lanUrls.length > 0) ? data.lanUrls[0] : window.location.origin;
+        lanUrlDisplay.textContent = url;
+      } catch {
+        lanUrlDisplay.textContent = window.location.origin;
+      }
+    }
+
+    // =====================================================================
+    // UI BUTTON HANDLERS (Broadcast to Central Server)
+    // =====================================================================
+    btnToggle.addEventListener('click', () => {
+      if (syncedState.expiredTriggered || getRemainingMs() <= 0) {
+        sendWS({ type: 'reset', totalSeconds: 24 * 3600, autoStart: true });
+      } else if (syncedState.isRunning) {
+        sendWS({ type: 'pause' });
+      } else {
+        sendWS({ type: 'start' });
+      }
+    });
+
+    btnReset.addEventListener('click', () => {
+      sendWS({ type: 'reset', totalSeconds: 24 * 3600, autoStart: false });
+    });
+
+    btnFastForward12h.addEventListener('click', () => {
+      // Jump to 12:00:03 so all screens witness automatic 12h breach in 3s
+      sendWS({ type: 'jump', seconds: 12 * 3600 + 3, autoStart: true });
+    });
+
+    btnFastForwardEnd.addEventListener('click', () => {
+      // Jump to 00:00:12 so all screens witness final 10s countdown & detonation
+      sendWS({ type: 'jump', seconds: 12, autoStart: true });
+    });
+
+    btnDoomAnim.addEventListener('click', () => {
+      sendWS({
+        type: 'trigger_doom',
+        x: 0.2 + Math.random() * 0.6,
+        y: 0.2 + Math.random() * 0.6
+      });
+    });
+
+    btnShatter.addEventListener('click', () => {
+      sendWS({
+        type: 'shatter_screen',
+        x: 0.15 + Math.random() * 0.7,
+        y: 0.15 + Math.random() * 0.7,
+        scale: 0.9 + Math.random() * 0.45
+      });
+    });
+
+    btnRepair.addEventListener('click', () => {
+      sendWS({ type: 'repair_screen' });
+    });
+
+    btnPlaySiren.addEventListener('click', () => {
+      sendWS({ type: 'trigger_siren', sirenType: 'doomsday' });
+    });
+
+    btnSetCustomTime.addEventListener('click', () => {
+      const val = (customTimeInput.value || '').trim();
+      const parts = val.split(':').map(Number);
+      let secs = 0;
+      if (parts.length === 3 && parts.every(n => !isNaN(n) && n >= 0)) {
+        secs = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else if (parts.length === 2 && parts.every(n => !isNaN(n) && n >= 0)) {
+        secs = parts[0] * 60 + parts[1];
+      } else if (parts.length === 1 && !isNaN(parts[0]) && parts[0] > 0) {
+        secs = parts[0] * 60;
+      }
+      if (secs > 0) {
+        sendWS({ type: 'reset', totalSeconds: secs, autoStart: syncedState.isRunning });
+      }
+    });
+
+    btnMute.addEventListener('click', () => {
+      isSoundMuted = !isSoundMuted;
+      if (isSoundMuted) {
+        stopAllActiveSounds();
+        soundOnIcon.classList.add('hidden');
+        soundOffIcon.classList.remove('hidden');
+      } else {
+        soundOnIcon.classList.remove('hidden');
+        soundOffIcon.classList.add('hidden');
+        unlockAudioOnGesture();
+        playClip('tick_clock', 0.7);
+      }
+      updateSoundBadge();
+    });
+
+    soundBadgeEl.addEventListener('click', () => {
+      if (isSoundMuted) {
+        btnMute.click();
+      } else {
+        unlockAudioOnGesture();
+        playClip('tick_clock', 0.7);
+      }
+    });
+
+    btnCopyLanUrl.addEventListener('click', () => {
+      const text = lanUrlDisplay.textContent;
+      navigator.clipboard?.writeText(text).then(() => {
+        btnCopyLanUrl.textContent = 'Copied!';
+        setTimeout(() => { btnCopyLanUrl.textContent = 'Copy'; }, 1500);
+      }).catch(() => {});
+    });
+
+    btnToggleKiosk.addEventListener('click', () => {
+      document.body.classList.add('kiosk-mode');
+      btnExitKiosk.classList.remove('hidden');
+    });
+
+    btnExitKiosk.addEventListener('click', () => {
+      document.body.classList.remove('kiosk-mode');
+      btnExitKiosk.classList.add('hidden');
+    });
+
+    // Boot
+    connectWebSocket();
+    loadNetworkInfo();
+    renderClockTick();
+  </script>
+</body>
+</html>
